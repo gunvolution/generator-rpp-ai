@@ -3,7 +3,7 @@ import {
   BookOpen, FileText, Calendar, Layout, User, Lock, 
   LogOut, Printer, Code, Loader2, AlertCircle, CheckCircle2,
   ChevronRight, Settings, Check, Download, AlertTriangle, Link as LinkIcon,
-  Key, HelpCircle, ExternalLink, X
+  Key, HelpCircle, ExternalLink, X, RefreshCw, Play
 } from 'lucide-react';
 
 // --- CONFIGURATION & API ---
@@ -13,7 +13,10 @@ const fetchWithRetry = async (url, options, retries = 5) => {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, options);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`HTTP error! status: ${response.status} - ${errorData.error?.message || 'Tidak ditemukan'}`);
+      }
       return await response.json();
     } catch (error) {
       if (i === retries - 1) throw error;
@@ -25,7 +28,8 @@ const fetchWithRetry = async (url, options, retries = 5) => {
 const generateWithAI = async (apiKey, systemPrompt, userQuery) => {
   if (!apiKey) throw new Error("API Key belum dikonfigurasi! Silakan masukkan API Key di menu Pengaturan API Key (kiri bawah).");
   
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+  // Menggunakan model flash terbaru yang stabil untuk Netlify deployment
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [{ parts: [{ text: userQuery }] }],
@@ -112,7 +116,8 @@ ${COMMON_RULES}
 const getPromptATP = (d) => `
 Buat dokumen **ALUR TUJUAN PEMBELAJARAN (ATP)** 1 Tahun.
 Identitas: ${d.sekolah} | ${d.mapel} | ${d.fase}.
-Daftar TP: ${d.dataSebelumnya}
+Daftar TP (Gunakan TP di bawah ini untuk menyusun alur): 
+${d.dataSebelumnya}
 Referensi Buku Paket / Materi Pokok: ${d.bukuReferensi ? d.bukuReferensi : 'Gunakan materi pokok standar Kurikulum Merdeka.'}
 (Pastikan Materi Pokok pada tabel diselaraskan dengan referensi buku paket di atas jika dilampirkan).
 
@@ -129,7 +134,8 @@ const getPromptProta = (d) => `
 Buat dokumen **PROGRAM TAHUNAN (PROTA)**.
 Identitas: ${d.sekolah} | ${d.mapel} | ${d.fase} | JP/Minggu: ${d.jpMinggu}.
 Kalender Pendidikan: ${d.kalender}
-Daftar TP: ${d.dataSebelumnya}
+Daftar ATP yang menjadi acuan: 
+${d.dataSebelumnya}
 
 INSTRUKSI FORMAT HTML:
 - Judul: "PROGRAM TAHUNAN"
@@ -143,7 +149,8 @@ const getPromptProsem = (d, semester) => `
 Buat dokumen **PROGRAM SEMESTER ${semester} (PROSEM)**.
 Identitas: ${d.sekolah} | ${d.mapel} | ${d.fase}.
 Kalender Pendidikan: ${d.kalender}
-Daftar TP: ${d.dataSebelumnya}
+Daftar ATP yang menjadi acuan: 
+${d.dataSebelumnya}
 
 INSTRUKSI FORMAT HTML:
 - Judul: "PROGRAM SEMESTER ${semester}"
@@ -156,7 +163,8 @@ ${COMMON_RULES}
 const getPromptKKTP = (d) => `
 Buat dokumen **KRITERIA KETERCAPAIAN TUJUAN PEMBELAJARAN (KKTP)**.
 Rentang Nilai: ${d.rentangNilai}
-Daftar TP: ${d.dataSebelumnya}
+Daftar ATP yang menjadi acuan: 
+${d.dataSebelumnya}
 
 INSTRUKSI FORMAT HTML:
 - Judul: "KRITERIA KETERCAPAIAN TUJUAN PEMBELAJARAN"
@@ -185,55 +193,27 @@ Alokasi Waktu: ${tpObj.pertemuan} Pertemuan x ${d.jpPertemuan}
 Susunlah Modul Ajar Presisi tersebut dengan format dan kelengkapan persis seperti struktur di bawah ini. Gunakan tabel HTML murni untuk format tabel (bukan markdown).
 
 STRUKTUR MODUL AJAR YANG HARUS DIBUAT:
-
 BAGIAN A - INFORMASI UMUM
 Identitas Modul: Buat tabel berisi Nama Penyusun (tulis "${d.guru}"), Satuan Pendidikan (${d.sekolah}), Mata Pelajaran, Fase/Kelas, Kode & Judul TP, Elemen CP, Alokasi Waktu, Model Pembelajaran, Moda, Tahun Pelajaran (${d.tahun}).
-Identifikasi Kesiapan Peserta Didik: Jelaskan asumsi kemampuan awal siswa.
-Karakteristik Materi Pelajaran: Jelaskan sifat materi (konseptual/faktual/prosedural) dan relevansinya.
-Tujuan Pembelajaran: Tuliskan TP yang jelas mencakup kompetensi dan konten.
+Identifikasi Kesiapan Peserta Didik, Karakteristik Materi Pelajaran, Tujuan Pembelajaran.
 Kompetensi Awal (Prasyarat): Buat tabel berisi 3 kompetensi prasyarat beserta "Cara Mengeceknya".
-Dimensi Profil Lulusan: Buat tabel berisi 3 dimensi dari 8 dimensi yang paling relevan dan "Deskripsi Perwujudan dalam Pembelajaran".
-Sarana & Prasarana: Buat tabel (Kategori: Teknologi Digital, Media Pembelajaran, Sumber Belajar, Ruang Belajar) beserta rincian dan keterangannya.
-Target Peserta Didik & Diferensiasi: Buat tabel untuk 3 kategori: Reguler/Tipikal, Kesulitan Belajar, Berbakat/Cepat, beserta perlakuan spesifiknya.
+Dimensi Profil Lulusan: Buat tabel berisi 3 dimensi dari 8 dimensi yang paling relevan.
+Sarana & Prasarana: Buat tabel beserta rincian dan keterangannya.
+Target Peserta Didik & Diferensiasi: Buat tabel untuk 3 kategori: Reguler/Tipikal, Kesulitan Belajar, Berbakat/Cepat.
 
 BAGIAN B - KOMPONEN INTI
-Pemahaman Bermakna: Tuliskan inti pemahaman mengapa materi ini penting untuk kehidupan nyata siswa (bertahan hidup/skill abad 21).
-Pertanyaan Pemantik: Buat 3 pertanyaan yang menggugah rasa ingin tahu.
-Asesmen Diagnostik:
-Diagnostik Non-Kognitif: 3 pertanyaan terkait kesiapan dan minat.
-Diagnostik Kognitif: Buat tabel (Indikator, Bentuk Soal, Tindak Lanjut).
-Berikan 5 Contoh Soal Asesmen Diagnostik Awal (PG, Isian, Terbuka).
+Pemahaman Bermakna, Pertanyaan Pemantik, Asesmen Diagnostik (Non-Kognitif & Kognitif).
 
 KEGIATAN PEMBELAJARAN (Sangat Penting):
 Bagi berdasarkan jumlah pertemuan yang diminta (${tpObj.pertemuan} pertemuan).
-Setiap pertemuan harus mencakup: Alokasi Waktu, Sintak Model Pembelajaran, Fokus, dan Tujuan Pertemuan.
 Tabel Pembuka (15 Menit): Aktivitas Guru dan Siswa. (Sertakan tag Prinsip: Mindful Learning, Joyful Learning).
-Tabel Kegiatan Inti:
-Wajib dipecah berdasarkan SINTAK model pembelajaran yang dipilih (Sintak 1, Sintak 2, dst).
-Pada setiap langkah Sintak, wajib sertakan tag gabungan dari [Prinsip Deep Learning: Mindful / Meaningful / Joyful] DAN [Prinsip Kognitif: Understanding / Applying / Reflecting].
-Buat tabel Aktivitas Guru dan Aktivitas Siswa secara detail, operasional, dan presisi.
+Tabel Kegiatan Inti: Wajib dipecah berdasarkan SINTAK model pembelajaran yang dipilih. Sertakan tag gabungan dari Prinsip Deep Learning & Prinsip Kognitif.
 Tabel Penutup (15 Menit): Aktivitas Guru dan Siswa. (Sertakan tag Prinsip: Reflecting).
 
-Asesmen Formatif:
-Buat Instrumen (Tabel: Teknik, Instrumen, Waktu Pelaksanaan, Aspek yang Dinilai).
-Berikan 5 Contoh Soal Asesmen Proses Pembelajaran (misal: analisis visual, lisan, unjuk kerja).
-Asesmen Sumatif:
-Buat instrumen evaluasi akhir (Tabel: Komponen, Deskripsi Tugas, Bobot, Acuan KKTP).
-Pengayaan & Remedial:
-Buat tabel matriks untuk 3 level: Remedial (Mulai Berkembang), Reguler (Layak/Cakap), Pengayaan (Mahir). Berisi Kegiatan dan Waktu.
-Refleksi Guru & Peserta Didik: Buat masing-masing 4 pertanyaan reflektif mendalam.
+Asesmen Formatif, Asesmen Sumatif, Pengayaan & Remedial, Refleksi Guru & Peserta Didik.
 
 BAGIAN C - LAMPIRAN
-Rubrik Penilaian Formatif: Buat tabel rubrik penilaian dengan skala 1-4 (Perlu Bimbingan, Mulai Berkembang, Berkembang Sesuai Harapan, Sangat Berkembang). Aspek A: Penilaian Proses/Kinerja. Aspek B: Penilaian Dimensi Profil Lulusan.
-Rubrik Penilaian Sumatif: Buat rubrik skala penilaian untuk instrumen sumatif yang telah ditentukan di atas (Rentang skor dan kriteria jawaban/kinerja).
-Lembar Kerja Peserta Didik (LKPD): Buat kerangka LKPD yang komprehensif (bukan sekadar soal). Mencakup: Pertanyaan Esensial (Stimulus), Perencanaan, Langkah Kerja (sesuai sintak), Tabel Pengamatan/Hasil, Evaluasi & Analisis Kritis, dan Refleksi.
-Glosarium & Daftar Pustaka: Berikan 3-5 istilah kunci dan 2 contoh daftar pustaka (termasuk Buku Kurikulum Merdeka).
-
-ATURAN TAMBAHAN UNTUK AI:
-Gunakan bahasa Indonesia yang baku, profesional, namun mudah dipahami (bahasa pendidik).
-Pastikan alur kegiatan logis dan benar-benar mencerminkan model pembelajaran yang dipilih.
-Tunjukkan inovasi abad 21 (literasi digital, pemanfaatan AI/Tools web, kolaborasi) dalam kegiatan siswa.
-Jangan berikan deskripsi pengantar, langsung hasilkan output Modul Ajar Presisi sesuai struktur.
+Rubrik Penilaian Formatif & Sumatif, Lembar Kerja Peserta Didik (LKPD), Glosarium & Daftar Pustaka.
 
 ${COMMON_RULES}
 `;
@@ -310,7 +290,7 @@ function LoginScreen({ onLogin }) {
                     <LinkIcon className="h-3 w-3 mr-1" /> Dapatkan Password dengan copy link di bawah ini:
                  </p>
                  <a 
-                   href="[gunspentik](gunspentik)" 
+                   href="https://gunspentik" 
                    target="_blank" 
                    rel="noreferrer" 
                    className="text-sm text-blue-800 hover:text-blue-600 hover:underline font-bold break-all"
@@ -336,7 +316,7 @@ function Dashboard({ onLogout }) {
   const [apiKey, setApiKey] = useState('');
   const [showApiModal, setShowApiModal] = useState(false);
   
-  // Shared State (Removed daftarTP from manual input)
+  // Data Global
   const [appData, setAppData] = useState({
     provinsiKota: 'Pemerintah Kabupaten Ketapang',
     dinas: 'Dinas Pendidikan',
@@ -362,7 +342,7 @@ function Dashboard({ onLogout }) {
     kalender: 'SEMESTER 1:\nJuli | 5 | 2 | MPLS\nAgustus | 4 | 0 | Efektif\nSeptember | 5 | 0 | Efektif\nOktober | 4 | 0 | Efektif\nNovember | 4 | 0 | Efektif\nDesember | 5 | 5 | PAS & Libur\n\nSEMESTER 2:\nJanuari | 4 | 0 | Efektif\nFebruari | 4 | 1 | Libur\nMaret | 5 | 2 | Idul Fitri\nApril | 4 | 0 | Efektif\nMei | 4 | 1 | Libur Mei\nJuni | 5 | 5 | PAT & Libur',
     rentangNilai: 'Level 1 (Mulai Berkembang): 0-54 | D\nLevel 2 (Layak): 55-69 | C\nLevel 3 (Cakap): 70-84 | B\nLevel 4 (Mahir): 85-100 | A',
     
-    modelPembelajaran: 'Problem Based Learning (PBL)', // Default
+    modelPembelajaran: 'Problem Based Learning (PBL)', 
     dataSebelumnya: '', 
     bukuReferensi: '',
   });
@@ -371,7 +351,6 @@ function Dashboard({ onLogout }) {
     cp: '', tp: '', atp: '', prota: '', prosem1: '', prosem2: '', kktp: '', modul: ''
   });
   
-  // State Khusus Modul Ajar Dropdown - Terisi otomatis dari ATP
   const [extractedTPs, setExtractedTPs] = useState([]);
   const [selectedTPIndex, setSelectedTPIndex] = useState(0);
 
@@ -395,7 +374,6 @@ function Dashboard({ onLogout }) {
     reader.readAsText(file);
   };
 
-  // Fungsi Parser HTML ATP untuk mengambil TP dan Materi secara otomatis
   const parseATPForModules = (atpHtmlString) => {
     try {
       const parser = new DOMParser();
@@ -403,7 +381,6 @@ function Dashboard({ onLogout }) {
       const tables = doc.querySelectorAll('table');
       let tps = [];
       
-      // Cari tabel yang berisi Kode TP dan Tujuan
       tables.forEach(table => {
         const headerRow = table.querySelector('tr');
         if (headerRow && headerRow.textContent.toLowerCase().includes('kode tp')) {
@@ -419,26 +396,17 @@ function Dashboard({ onLogout }) {
                  
                  if(kode && tujuan && kode.length > 3) {
                      const jpNum = parseInt(jpStr.match(/\d+/)?.[0] || 0);
-                     // Menghitung JP Pertemuan dari string (misal: "2 JP (80 Menit)" -> 2)
                      const jpPerPertemuan = parseInt(appData.jpPertemuan.match(/\d+/)?.[0] || 2);
                      let pertemuanCalc = Math.max(1, Math.ceil(jpNum / jpPerPertemuan));
                      
-                     tps.push({ 
-                       kode, 
-                       tujuan, 
-                       materi: materi || 'Materi Umum', 
-                       jp: jpNum, 
-                       pertemuan: pertemuanCalc 
-                     });
+                     tps.push({ kode, tujuan, materi: materi || 'Materi Umum', jp: jpNum, pertemuan: pertemuanCalc });
                  }
              }
           });
         }
       });
       
-      // Hapus duplikasi jika ada (berdasarkan kode)
       const uniqueTPs = Array.from(new Map(tps.map(item => [item.kode, item])).values());
-      
       if(uniqueTPs.length > 0) {
         setExtractedTPs(uniqueTPs);
         setSelectedTPIndex(0);
@@ -448,7 +416,8 @@ function Dashboard({ onLogout }) {
     }
   };
 
-  const handleGenerateGlobal = async () => {
+  // --- FUNGSI GENERATE SATUAN PER TAB ---
+  const handleGenerateSingleTab = async (docType) => {
     if (!apiKey) {
        setErrorMsg('API Key belum diisi. Silakan klik tombol "Pengaturan API Key" di menu kiri bawah terlebih dahulu.');
        setShowApiModal(true);
@@ -457,49 +426,51 @@ function Dashboard({ onLogout }) {
     
     setIsGenerating(true);
     setErrorMsg('');
-    
     let currentData = { ...appData };
-
+    let promptName = tabs.find(t => t.id === docType)?.label || 'Dokumen';
+    
     try {
-      setProgressMsg('1/6: Menyusun Analisis CP...');
-      const cp = await generateWithAI(apiKey, COMMON_RULES, getPromptAnalisisCP(currentData));
-      setGeneratedDocs(prev => ({ ...prev, cp }));
+      let result = '';
+      setProgressMsg(`AI Sedang Merumuskan ${promptName}...`);
 
-      setProgressMsg('2/6: Merumuskan Tujuan Pembelajaran (TP)...');
-      const tp = await generateWithAI(apiKey, COMMON_RULES, getPromptTP(currentData));
-      setGeneratedDocs(prev => ({ ...prev, tp }));
-      currentData.dataSebelumnya = tp;
-
-      setProgressMsg('3/6: Menyusun Alur Tujuan Pembelajaran (ATP)...');
-      const atp = await generateWithAI(apiKey, COMMON_RULES, getPromptATP(currentData));
-      setGeneratedDocs(prev => ({ ...prev, atp }));
-      currentData.dataSebelumnya = atp;
+      if (docType === 'cp') {
+        result = await generateWithAI(apiKey, COMMON_RULES, getPromptAnalisisCP(currentData));
       
-      // Otomatis Ekstrak TP dan Materi dari ATP
-      parseATPForModules(atp);
+      } else if (docType === 'tp') {
+        result = await generateWithAI(apiKey, COMMON_RULES, getPromptTP(currentData));
+      
+      } else if (docType === 'atp') {
+        if (!generatedDocs.tp) throw new Error("Gagal! Anda harus meng-generate dokumen '2. Tujuan Pemb. (TP)' terlebih dahulu agar AI punya acuan alur.");
+        currentData.dataSebelumnya = generatedDocs.tp;
+        result = await generateWithAI(apiKey, COMMON_RULES, getPromptATP(currentData));
+        parseATPForModules(result); // Otomatis parsing ATP untuk tab Modul
+      
+      } else if (docType === 'prota') {
+        if (!generatedDocs.atp) throw new Error("Gagal! Anda harus meng-generate dokumen '3. Alur (ATP)' terlebih dahulu.");
+        currentData.dataSebelumnya = generatedDocs.atp;
+        result = await generateWithAI(apiKey, COMMON_RULES, getPromptProta(currentData));
+      
+      } else if (docType === 'prosem1') {
+        if (!generatedDocs.atp) throw new Error("Gagal! Anda harus meng-generate dokumen '3. Alur (ATP)' terlebih dahulu.");
+        currentData.dataSebelumnya = generatedDocs.atp;
+        result = await generateWithAI(apiKey, COMMON_RULES, getPromptProsem(currentData, '1 (Ganjil)'));
+      
+      } else if (docType === 'prosem2') {
+        if (!generatedDocs.atp) throw new Error("Gagal! Anda harus meng-generate dokumen '3. Alur (ATP)' terlebih dahulu.");
+        currentData.dataSebelumnya = generatedDocs.atp;
+        result = await generateWithAI(apiKey, COMMON_RULES, getPromptProsem(currentData, '2 (Genap)'));
+      
+      } else if (docType === 'kktp') {
+        if (!generatedDocs.atp) throw new Error("Gagal! Anda harus meng-generate dokumen '3. Alur (ATP)' terlebih dahulu.");
+        currentData.dataSebelumnya = generatedDocs.atp;
+        result = await generateWithAI(apiKey, COMMON_RULES, getPromptKKTP(currentData));
+      }
 
-      setProgressMsg('4/6: Menghitung Program Tahunan (Prota)...');
-      const prota = await generateWithAI(apiKey, COMMON_RULES, getPromptProta(currentData));
-      setGeneratedDocs(prev => ({ ...prev, prota }));
-      currentData.dataSebelumnya = prota;
-
-      setProgressMsg('5/6: Menyusun Program Semester 1 & 2...');
-      const prosem1 = await generateWithAI(apiKey, COMMON_RULES, getPromptProsem(currentData, '1 (Ganjil)'));
-      const prosem2 = await generateWithAI(apiKey, COMMON_RULES, getPromptProsem(currentData, '2 (Genap)'));
-      setGeneratedDocs(prev => ({ ...prev, prosem1, prosem2 }));
-
-      setProgressMsg('6/6: Merumuskan KKTP...');
-      currentData.dataSebelumnya = atp;
-      const kktp = await generateWithAI(apiKey, COMMON_RULES, getPromptKKTP(currentData));
-      setGeneratedDocs(prev => ({ ...prev, kktp }));
-
-      setProgressMsg('Selesai! Dokumen 1-6 dibuat. Daftar TP dan Materi telah otomatis dikirim ke Tab Modul Ajar.');
-      setTimeout(() => {
-         setProgressMsg('');
-         setActiveTab('cp');
-      }, 5000);
+      setGeneratedDocs(prev => ({ ...prev, [docType]: result }));
+      setProgressMsg('');
     } catch (err) {
-      setErrorMsg(`Terjadi kegagalan pada proses: ${progressMsg}. Error: ${err.message}`);
+      setErrorMsg(`Error: ${err.message}`);
+      setProgressMsg('');
     } finally {
       setIsGenerating(false);
     }
@@ -519,8 +490,7 @@ function Dashboard({ onLogout }) {
       setProgressMsg(`Menyusun Modul Ajar Presisi untuk TP: ${targetTP.kode}...`);
       const modul = await generateWithAI(apiKey, COMMON_RULES, getPromptModul(appData, targetTP));
       setGeneratedDocs(prev => ({ ...prev, modul }));
-      setProgressMsg('Modul Ajar Berhasil Dibuat! Silahkan geser ke bawah untuk melihat hasilnya.');
-      setTimeout(() => setProgressMsg(''), 6000);
+      setProgressMsg('');
     } catch (err) {
       setErrorMsg(`Gagal membuat Modul Ajar: ${err.message}`);
     } finally {
@@ -531,7 +501,6 @@ function Dashboard({ onLogout }) {
   const handleDownloadWord = () => {
     const isLandscape = ['prosem1', 'prosem2', 'atp', 'kktp'].includes(activeTab);
     
-    // Injecting Microsoft Word XML namespaces and Page orientation CSS
     const header = `
       <html xmlns:o='urn:schemas-microsoft-com:office:office' 
             xmlns:w='urn:schemas-microsoft-com:office:word' 
@@ -546,22 +515,8 @@ function Dashboard({ onLogout }) {
           th { background-color: #1a3a5c; color: white; }
           h1, h2, h3 { color: #1a3a5c; }
           
-          /* Kertas A4 Portrait */
-          @page WordSectionPortrait {
-              size: 595.3pt 841.9pt; 
-              margin: 72pt 72pt 72pt 72pt;
-              mso-header-margin: 36pt;
-              mso-footer-margin: 36pt;
-              mso-paper-source: 0;
-          }
-          /* Kertas A4 Landscape */
-          @page WordSectionLandscape {
-              size: 841.9pt 595.3pt; 
-              margin: 72pt 72pt 72pt 72pt;
-              mso-header-margin: 36pt;
-              mso-footer-margin: 36pt;
-              mso-paper-source: 0;
-          }
+          @page WordSectionPortrait { size: 595.3pt 841.9pt; margin: 72pt 72pt 72pt 72pt; mso-header-margin: 36pt; mso-footer-margin: 36pt; mso-paper-source: 0; }
+          @page WordSectionLandscape { size: 841.9pt 595.3pt; margin: 72pt 72pt 72pt 72pt; mso-header-margin: 36pt; mso-footer-margin: 36pt; mso-paper-source: 0; }
           div.WordSectionPortrait { page: WordSectionPortrait; }
           div.WordSectionLandscape { page: WordSectionLandscape; }
         </style>
@@ -599,10 +554,10 @@ function Dashboard({ onLogout }) {
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
     iframe.style.bottom = '0';
-    iframe.style.width = '100vw'; // Ensure full width for proper media query execution
+    iframe.style.width = '100vw'; 
     iframe.style.height = '100vh';
     iframe.style.border = '0';
-    iframe.style.zIndex = '-9999'; // Hide it behind everything
+    iframe.style.zIndex = '-9999'; 
     document.body.appendChild(iframe);
 
     const isLandscape = ['prosem1', 'prosem2', 'atp', 'kktp'].includes(activeTab);
@@ -622,7 +577,6 @@ function Dashboard({ onLogout }) {
           .header-kop { text-align: center; border-bottom: 3px solid black; padding-bottom: 1rem; margin-bottom: 2rem; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           
-          /* Strict Print Styling */
           @media print {
              @page { 
                size: A4 ${isLandscape ? 'landscape' : 'portrait'}; 
@@ -646,7 +600,7 @@ function Dashboard({ onLogout }) {
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
       setTimeout(() => document.body.removeChild(iframe), 1500);
-    }, 1000); // Give it a second to render CSS completely before printing
+    }, 1000);
   };
 
   const tabs = [
@@ -678,7 +632,10 @@ function Dashboard({ onLogout }) {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setErrorMsg('');
+              }}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
                 activeTab === tab.id ? 'bg-blue-50 text-blue-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
@@ -711,17 +668,28 @@ function Dashboard({ onLogout }) {
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center print:hidden no-print z-10 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-800 flex items-center">{tabs.find(t => t.id === activeTab)?.label}</h2>
+          
+          {/* Tombol Generate Kecil di Header (Jika dokumen sudah ada) */}
+          {activeTab !== 'identitas' && activeTab !== 'modul' && generatedDocs[activeTab] && (
+            <button 
+              onClick={() => handleGenerateSingleTab(activeTab)} 
+              disabled={isGenerating}
+              className="inline-flex items-center text-sm space-x-1.5 px-3 py-1.5 border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors disabled:opacity-50 font-medium"
+            >
+              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              <span>Generate Ulang</span>
+            </button>
+          )}
         </header>
 
         <div className="flex-1 overflow-auto bg-slate-100/50 p-6 print:p-0 print:bg-white flex flex-col relative custom-scrollbar">
           
           {/* TAB 1: FORM DATA GLOBAL */}
-          {}
           {activeTab === 'identitas' && (
             <div className="max-w-5xl mx-auto w-full bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col print:hidden no-print">
               <div className="p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
                 <h3 className="font-bold text-slate-800 text-lg">Input Data Global 1 Tahun</h3>
-                <p className="text-sm text-slate-500 mt-1">Isi identitas dan komponen dasar (TP & Materi akan ditarik otomatis oleh AI saat Generate).</p>
+                <p className="text-sm text-slate-500 mt-1">Isi identitas dan komponen dasar dengan lengkap sebelum mulai meng-generate dokumen per tab.</p>
               </div>
               
               <div className="p-6 overflow-y-auto space-y-8 flex-1">
@@ -779,7 +747,6 @@ function Dashboard({ onLogout }) {
                    </div>
                 </section>
 
-                {}
                 <section>
                    <h4 className="font-semibold text-blue-900 border-b border-slate-200 pb-2 mb-4">Blok 5: Referensi Materi Pokok (Buku Paket Kemdikbud)</h4>
                    <div className="bg-blue-50/50 border border-blue-100 p-5 rounded-xl space-y-4 shadow-sm">
@@ -787,7 +754,7 @@ function Dashboard({ onLogout }) {
                          <label className="block text-sm font-medium text-slate-700 mb-2">Upload File Buku Paket (.txt) atau Paste Daftar Isi</label>
                          <p className="text-xs text-slate-500 mb-4">
                            Sertakan daftar isi atau ringkasan materi dari Buku Paket Kementerian agar AI dapat memetakan dan menyusun Materi Pokok secara presisi sesuai dengan buku pegangan. 
-                           <i>Catatan: Konversi PDF ke Teks (.txt) terlebih dahulu sebelum diupload, atau langsung paste teks daftarnya di bawah ini.</i>
+                           <i>Catatan: Kurangi teks daftar isi ke bagian inti bab saja agar proses generate lebih ringan dan tidak gagal.</i>
                          </p>
                          <input
                             type="file"
@@ -808,19 +775,12 @@ function Dashboard({ onLogout }) {
                 </section>
               </div>
               
-              <div className="p-6 border-t border-slate-100 bg-slate-50/90 rounded-b-xl flex flex-col items-center sticky bottom-0 z-20 backdrop-blur-sm">
-                {progressMsg && activeTab === 'identitas' && (
-                  <div className="w-full mb-4 px-4 py-3 bg-blue-100 text-blue-900 rounded-md text-sm font-medium flex items-center justify-center space-x-2 animate-pulse border border-blue-200">
-                     <Loader2 className="animate-spin h-5 w-5" /><span>{progressMsg}</span>
-                  </div>
-                )}
-                {errorMsg && activeTab === 'identitas' && (
-                  <div className="w-full mb-4 px-4 py-3 bg-red-100 text-red-900 rounded-md text-sm font-medium flex items-center justify-center space-x-2 border border-red-200">
-                     <AlertCircle className="h-5 w-5" /><span>{errorMsg}</span>
-                  </div>
-                )}
-                <button onClick={handleGenerateGlobal} disabled={isGenerating} className="w-full md:w-2/3 flex justify-center items-center py-4 px-6 border border-transparent rounded-lg shadow-lg text-lg font-bold text-white bg-blue-900 hover:bg-blue-800 focus:outline-none disabled:bg-slate-400 transition-all">
-                  {isGenerating ? 'AI Sedang Memproses Dokumen 1-6...' : 'Generate Dokumen 1 s.d. 6 Sekaligus'}
+              <div className="p-6 border-t border-slate-100 bg-slate-50/90 rounded-b-xl flex justify-center sticky bottom-0 z-20 backdrop-blur-sm">
+                <button 
+                  onClick={() => setActiveTab('cp')} 
+                  className="w-full md:w-2/3 flex justify-center items-center py-4 px-6 border border-transparent rounded-lg shadow-lg text-lg font-bold text-white bg-blue-900 hover:bg-blue-800 focus:outline-none transition-all"
+                >
+                  Simpan Data & Mulai Generate (Lanjut ke Tab 1) <ChevronRight className="ml-2 h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -829,8 +789,6 @@ function Dashboard({ onLogout }) {
           {/* TAB MODUL AJAR (KHUSUS) */}
           {activeTab === 'modul' && (
              <div className="w-full flex flex-col items-center print:hidden no-print pb-12">
-               
-               {/* Konfigurasi Modul Ajar (Dropdown) */}
                <div className="w-full max-w-5xl bg-white border border-slate-200 rounded-xl shadow-sm mb-6 p-6 shrink-0">
                  <h3 className="font-bold text-slate-800 text-lg mb-1">Pengaturan Cepat Modul Ajar Presisi</h3>
                  <p className="text-sm text-slate-500 mb-6">Pilih Tujuan Pembelajaran. TP, Materi, dan Estimasi Pertemuan disinkronisasi otomatis dari hasil generate ATP sebelumnya.</p>
@@ -838,7 +796,7 @@ function Dashboard({ onLogout }) {
                  {extractedTPs.length === 0 ? (
                     <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md text-sm flex items-start space-x-3 mb-6">
                        <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                       <p><strong>Perhatian:</strong> Anda belum melakukan Generate Dokumen (1-6) atau AI gagal membuat tabel ATP yang valid. Silakan kembali ke Tab Data Global dan jalankan <strong>"Generate Dokumen 1 s.d 6"</strong> terlebih dahulu agar pilihan TP dan Materi muncul otomatis di sini.</p>
+                       <p><strong>Perhatian:</strong> Anda belum memiliki dokumen ATP. Silakan menuju tab <strong>3. Alur (ATP)</strong> dan buat dokumennya terlebih dahulu agar pilihan Modul Ajar otomatis muncul di sini.</p>
                     </div>
                  ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -856,14 +814,12 @@ function Dashboard({ onLogout }) {
                             ))}
                           </select>
                        </div>
-                       
                        <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Materi Pokok (Otomatis dari ATP)</label>
                           <div className="w-full text-sm rounded-md border border-slate-200 p-3 bg-gray-100 text-slate-700 min-h-[46px]">
                              {extractedTPs[selectedTPIndex]?.materi}
                           </div>
                        </div>
-                       
                        <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Alokasi Waktu (Otomatis)</label>
                           <div className="w-full text-sm rounded-md border border-slate-200 p-3 bg-gray-100 text-slate-700 min-h-[46px] flex items-center space-x-2">
@@ -871,7 +827,6 @@ function Dashboard({ onLogout }) {
                              <span>{extractedTPs[selectedTPIndex]?.pertemuan} Pertemuan (Total {extractedTPs[selectedTPIndex]?.jp} JP)</span>
                           </div>
                        </div>
-
                        <div className="md:col-span-2 mt-2">
                           <label className="block text-sm font-bold text-slate-700 mb-2">Model Pembelajaran</label>
                           <select 
@@ -898,8 +853,8 @@ function Dashboard({ onLogout }) {
                       </div>
                     )}
                     {errorMsg && (
-                      <div className="w-full mb-4 px-4 py-3 bg-red-100 text-red-900 rounded-md text-sm font-medium flex items-center justify-center space-x-2">
-                         <AlertCircle className="h-5 w-5" /><span>{errorMsg}</span>
+                      <div className="w-full mb-4 px-4 py-3 bg-red-100 text-red-900 rounded-md text-sm font-medium flex items-center justify-center space-x-2 border border-red-200">
+                         <AlertCircle className="h-5 w-5 flex-shrink-0" /><span>{errorMsg}</span>
                       </div>
                     )}
                     <button 
@@ -912,62 +867,81 @@ function Dashboard({ onLogout }) {
                  </div>
                </div>
                
-               {/* Efek Loading Visual dan Pratinjau Modul Ajar */}
-               {isGenerating ? (
-                  <div className="w-full max-w-5xl bg-white border border-blue-200 rounded-xl shadow-lg p-16 flex flex-col items-center justify-center space-y-6">
+               {/* Preview Modul Ajar */}
+               {isGenerating && (
+                  <div className="w-full max-w-5xl bg-white border border-blue-200 rounded-xl shadow-lg p-16 flex flex-col items-center justify-center space-y-6 mb-8">
                      <div className="relative flex justify-center items-center">
                         <div className="absolute animate-ping w-24 h-24 rounded-full bg-blue-200 opacity-60"></div>
                         <div className="absolute animate-ping w-16 h-16 rounded-full bg-blue-400 opacity-60" style={{ animationDelay: '0.2s' }}></div>
                         <Loader2 className="animate-spin text-blue-900 h-12 w-12 relative z-10" />
                      </div>
-                     <h3 className="text-xl font-bold text-blue-900 animate-pulse text-center">AI Sedang Menyusun Modul Ajar Presisi</h3>
-                     <p className="text-sm text-slate-500 text-center max-w-md">Proses ini memakan waktu beberapa saat karena AI sedang menyesuaikan sintaks pembelajaran yang kompleks.</p>
+                     <h3 className="text-xl font-bold text-blue-900 animate-pulse text-center">AI Sedang Menyusun Modul Ajar Presisi...</h3>
                   </div>
-               ) : generatedDocs.modul && (
+               )}
+               
+               {generatedDocs.modul && !isGenerating && (
                  <div className="w-full max-w-5xl flex flex-col items-center bg-[#525659] rounded-xl overflow-hidden shadow-xl border border-slate-400 custom-scrollbar print-container relative flex-1">
-                    
-                    {/* Header Notifikasi Berhasil */}
-                    <div className="w-full bg-green-600 text-white px-6 py-4 flex flex-col sm:flex-row justify-between items-center print:hidden border-b border-green-700 shadow-md">
-                       <div className="flex items-center space-x-2 mb-2 sm:mb-0">
-                          <CheckCircle2 className="h-6 w-6" />
-                          <span className="font-semibold text-lg">Modul Ajar Siap!</span>
-                       </div>
-                       <div className="bg-green-800/50 px-4 py-1.5 rounded-full">
-                          <span className="text-sm font-medium animate-pulse">Silahkan geser/scroll ke bawah untuk membaca hasilnya &darr;</span>
-                       </div>
+                    <div className="w-full bg-green-600 text-white px-6 py-4 flex justify-between items-center print:hidden border-b border-green-700 shadow-md">
+                       <div className="flex items-center space-x-2"><CheckCircle2 className="h-6 w-6" /><span className="font-semibold text-lg">Modul Ajar Siap!</span></div>
                     </div>
-
-                    {/* Preview Wrapper dengan scroll horizontal yang lebih baik jika layar kecil */}
                     <div className="w-full overflow-x-auto flex justify-center py-10 px-4 sm:px-8">
-                       <div 
-                         className="document-preview bg-white shadow-2xl p-6 sm:p-10 lg:p-14 text-black w-full"
-                         style={{ maxWidth: '210mm', minHeight: '297mm' }}
-                         dangerouslySetInnerHTML={{ __html: generatedDocs.modul }}
-                       />
+                       <div className="document-preview bg-white shadow-2xl p-6 sm:p-10 lg:p-14 text-black w-full" style={{ maxWidth: '210mm', minHeight: '297mm' }} dangerouslySetInnerHTML={{ __html: generatedDocs.modul }} />
                     </div>
-                    
-                    {/* Tombol Aksi di Bawah Dokumen */}
                     <div className="w-full flex flex-wrap justify-center gap-4 p-6 bg-slate-800 border-t border-slate-700 print:hidden">
-                      <button onClick={handleDownloadWord} className="inline-flex items-center space-x-2 px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
-                        <Download className="h-5 w-5" /><span>Download Word (.doc)</span>
-                      </button>
-                      <button onClick={handlePrintHTML} className="inline-flex items-center space-x-2 px-6 py-3 border border-slate-500 shadow-sm text-base font-medium rounded-md text-white bg-slate-700 hover:bg-slate-600 transition-colors">
-                        <Printer className="h-5 w-5" /><span>Cetak / PDF</span>
-                      </button>
+                      <button onClick={handleDownloadWord} className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"><Download className="h-5 w-5 mr-2" />Download Word (.doc)</button>
+                      <button onClick={handlePrintHTML} className="inline-flex items-center px-6 py-3 border border-slate-500 rounded-md text-white bg-slate-700 hover:bg-slate-600"><Printer className="h-5 w-5 mr-2" />Cetak / PDF</button>
                     </div>
                  </div>
                )}
              </div>
           )}
 
-          {/* TAB 2-6: DOCUMENT PREVIEW */}
+          {/* TAB 2-6: DOCUMENT PREVIEW & GENERATE PER TAB */}
           {activeTab !== 'identitas' && activeTab !== 'modul' && (
             <div className="flex-1 w-full flex flex-col items-center">
-              {generatedDocs[activeTab] ? (
-                <div className="w-full h-full overflow-auto bg-[#525659] print:bg-white custom-scrollbar print-container relative flex flex-col">
+              
+              {!generatedDocs[activeTab] && !isGenerating && (
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 print:hidden p-8 text-center w-full max-w-2xl mx-auto">
+                  <div className="h-24 w-24 bg-blue-50 rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-sm">
+                     <Play className="h-10 w-10 text-blue-600 ml-2" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-700 mb-3">Mulai {tabs.find(t => t.id === activeTab)?.label}</h3>
+                  <p className="text-slate-500 mb-8 max-w-lg">Dokumen ini belum dirancang oleh AI. Klik tombol di bawah ini untuk memulai proses *generate* khusus untuk dokumen ini saja agar lebih ringan dan cepat.</p>
+                  
+                  {errorMsg && (
+                    <div className="w-full mb-6 px-4 py-3 bg-red-100 text-red-900 rounded-md text-sm font-medium flex items-center justify-center space-x-2 border border-red-200">
+                       <AlertCircle className="h-5 w-5 flex-shrink-0" /><span>{errorMsg}</span>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => handleGenerateSingleTab(activeTab)} 
+                    className="flex justify-center items-center py-4 px-8 border border-transparent rounded-lg shadow-lg text-lg font-bold text-white bg-blue-900 hover:bg-blue-800 focus:outline-none transition-all transform hover:scale-105"
+                  >
+                    Generate {tabs.find(t => t.id === activeTab)?.label}
+                  </button>
+                </div>
+              )}
+
+              {isGenerating && (
+                 <div className="flex-1 w-full max-w-3xl flex flex-col items-center justify-center mt-12 bg-white border border-blue-200 rounded-xl shadow-lg p-16 space-y-6">
+                     <div className="relative flex justify-center items-center">
+                        <div className="absolute animate-ping w-24 h-24 rounded-full bg-blue-200 opacity-60"></div>
+                        <div className="absolute animate-ping w-16 h-16 rounded-full bg-blue-400 opacity-60" style={{ animationDelay: '0.2s' }}></div>
+                        <Loader2 className="animate-spin text-blue-900 h-12 w-12 relative z-10" />
+                     </div>
+                     <h3 className="text-xl font-bold text-blue-900 animate-pulse text-center">{progressMsg || 'AI Sedang Bekerja...'}</h3>
+                 </div>
+              )}
+
+              {generatedDocs[activeTab] && !isGenerating && (
+                <div className="w-full h-full overflow-auto bg-[#525659] print:bg-white custom-scrollbar print-container relative flex flex-col items-center">
+                  <div className="w-full max-w-[1000px] bg-green-600 text-white px-6 py-3 mt-6 rounded-t-xl flex justify-between items-center print:hidden shadow-md">
+                     <div className="flex items-center space-x-2"><CheckCircle2 className="h-5 w-5" /><span className="font-semibold text-sm">Berhasil dibuat. Anda bisa membaca hasilnya di bawah ini.</span></div>
+                  </div>
                   
                   <div 
-                    className="document-preview bg-white mx-auto shadow-2xl p-10 lg:p-14 text-black shrink-0 mt-8 mb-4 print:mt-0 print:mb-0 print:p-0"
+                    className="document-preview bg-white shadow-2xl p-10 lg:p-14 text-black shrink-0 mb-4 print:mt-0 print:mb-0 print:p-0"
                     style={{ 
                        width: '100%', 
                        maxWidth: ['prosem1', 'prosem2', 'atp', 'kktp'].includes(activeTab) ? '297mm' : '210mm',
@@ -987,13 +961,6 @@ function Dashboard({ onLogout }) {
                       <Printer className="h-5 w-5" /><span>Cetak / PDF</span>
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 print:hidden p-8 text-center w-full max-w-lg mx-auto">
-                  <FileText className="h-20 w-20 mb-6 opacity-20 text-slate-500" />
-                  <p className="text-xl font-medium text-slate-600 mb-2">Dokumen Belum Tersedia</p>
-                  <p className="text-sm text-slate-500">Kembali ke tab <strong>Data Global</strong> dan klik "Generate Dokumen" terlebih dahulu.</p>
-                  <button onClick={() => setActiveTab('identitas')} className="mt-6 px-4 py-2 bg-blue-100 text-blue-900 rounded-md font-medium hover:bg-blue-200 transition-colors">Ke Data Global</button>
                 </div>
               )}
             </div>
@@ -1065,7 +1032,7 @@ function Dashboard({ onLogout }) {
                   <HelpCircle className="h-4 w-4 mr-2" /> Cara Mendapatkan API Key (Gratis)
                 </h4>
                 <ol className="list-decimal list-inside text-sm text-slate-700 space-y-2">
-                  <li>Buka situs <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-700 font-bold hover:underline inline-flex items-center">Google AI Studio <ExternalLink className="h-3 w-3 ml-1" /></a>.</li>
+                  <li>Buka situs <a href="[https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)" target="_blank" rel="noreferrer" className="text-blue-700 font-bold hover:underline inline-flex items-center">Google AI Studio <ExternalLink className="h-3 w-3 ml-1" /></a>.</li>
                   <li>Login menggunakan akun Google (Gmail) Anda.</li>
                   <li>Di menu sebelah kiri, klik opsi <strong>"Get API key"</strong>.</li>
                   <li>Klik tombol biru <strong>"Create API key"</strong>.</li>
