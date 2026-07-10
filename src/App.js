@@ -29,7 +29,7 @@ const generateWithAI = async (apiKey, systemPrompt, userQuery) => {
   if (!apiKey) throw new Error("API Key belum dikonfigurasi! Silakan masukkan API Key di menu Pengaturan API Key (kiri bawah).");
   
   // Menggunakan model flash terbaru yang stabil untuk Netlify deployment
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [{ parts: [{ text: userQuery }] }],
