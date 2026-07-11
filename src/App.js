@@ -3,7 +3,7 @@ import {
   BookOpen, FileText, Calendar, Layout, User, Lock, 
   LogOut, Printer, Code, Loader2, AlertCircle, CheckCircle2,
   ChevronRight, Settings, Check, Download, AlertTriangle, Link as LinkIcon,
-  Key, HelpCircle, ExternalLink, X, RefreshCw, Play, Copy, ClipboardPaste
+  Key, HelpCircle, ExternalLink, X, RefreshCw, Play, Copy, ClipboardPaste, ArrowLeft
 } from 'lucide-react';
 
 // --- CONFIGURATION & API ---
