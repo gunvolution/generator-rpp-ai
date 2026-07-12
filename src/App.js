@@ -473,7 +473,7 @@ function Dashboard({ onLogout }) {
             </div>
           )}
 
-          {/* TAB MODUL AJAR (KHUSUS) */}
+{/* TAB MODUL AJAR (KHUSUS) */}
           {activeTab === 'modul' && (
              <div className="w-full flex flex-col items-center print:hidden no-print pb-12">
                {!generatedDocs.modul ? (
@@ -486,29 +486,34 @@ function Dashboard({ onLogout }) {
                       </div>
                    ) : (
                       <div className="space-y-4 mt-4">
-                         <label className="block text-sm font-semibold text-slate-700">Pilih Tujuan Pembelajaran:</label>
-                         <select value={selectedTPIndex} onChange={(e) => setSelectedTPIndex(Number(e.target.value))} className="w-full border p-3 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-medium">
-                            {extractedTPs.map((tp, idx) => <option key={idx} value={idx}>[{tp.kode}] {tp.tujuan}</option>)}
-                         </select>
+                         {/* PILIHAN 1: TP */}
+                         <div>
+                           <label className="block text-sm font-semibold text-slate-700 mb-1">Pilih Tujuan Pembelajaran (TP):</label>
+                           <select value={selectedTPIndex} onChange={(e) => setSelectedTPIndex(Number(e.target.value))} className="w-full border p-3 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-medium bg-slate-50">
+                              {extractedTPs.map((tp, idx) => <option key={idx} value={idx}>[{tp.kode}] {tp.tujuan}</option>)}
+                           </select>
+                         </div>
+
+                         {/* PILIHAN 2: MODEL PEMBELAJARAN (YANG BARU DITAMBAHKAN) */}
+                         <div>
+                           <label className="block text-sm font-semibold text-slate-700 mb-1">Pilih Model Pembelajaran:</label>
+                           <select name="modelPembelajaran" value={appData.modelPembelajaran} onChange={handleChange} className="w-full border p-3 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-medium bg-slate-50">
+                              <option value="Problem Based Learning (PBL)">Problem Based Learning (PBL)</option>
+                              <option value="Project Based Learning (PjBL)">Project Based Learning (PjBL)</option>
+                              <option value="Discovery Learning">Discovery Learning</option>
+                              <option value="Inquiry Learning">Inquiry Learning</option>
+                              <option value="Cooperative Learning">Cooperative Learning</option>
+                              <option value="Direct Instruction (Pembelajaran Langsung)">Direct Instruction (Pembelajaran Langsung)</option>
+                           </select>
+                         </div>
+
                          <div className="flex space-x-4 pt-4">
-                            <button onClick={() => handleCopyPrompt('modul')} className="flex-1 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-md font-bold flex items-center justify-center transition-colors"><Copy className="w-5 h-5 mr-2"/> 1. Salin Prompt ke ChatGPT</button>
+                            <button onClick={() => handleCopyPrompt('modul')} className="flex-1 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-md font-bold flex items-center justify-center transition-colors"><Copy className="w-5 h-5 mr-2"/> 1. Salin Prompt ke AI</button>
                             <button onClick={() => handlePasteResult('modul')} className="flex-1 bg-green-700 hover:bg-green-800 text-white py-3 rounded-md font-bold flex items-center justify-center transition-colors"><ClipboardPaste className="w-5 h-5 mr-2"/> 2. Paste Hasil HTML</button>
                          </div>
                       </div>
                    )}
                  </div>
-               ) : (
-                 <div className="w-full max-w-5xl flex flex-col items-center bg-[#525659] rounded-xl overflow-hidden shadow-xl border border-slate-400">
-                    <div className="w-full bg-green-600 text-white px-6 py-4 flex justify-between items-center"><span className="font-bold flex items-center"><CheckCircle2 className="w-5 h-5 mr-2" /> Modul Ajar Siap!</span></div>
-                    <div className="w-full overflow-x-auto flex justify-center py-10 px-4"><div className="document-preview bg-white shadow-2xl p-10 text-black w-full" style={{ maxWidth: '210mm', minHeight: '297mm' }} dangerouslySetInnerHTML={{ __html: generatedDocs.modul }} /></div>
-                    <div className="w-full flex flex-wrap justify-center gap-4 p-6 bg-slate-800">
-                      <button onClick={handleDownloadWord} className="flex items-center px-6 py-3 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"><Download className="h-5 w-5 mr-2" />Download Word</button>
-                      <button onClick={handlePrintHTML} className="flex items-center px-6 py-3 rounded-md text-white bg-slate-700 hover:bg-slate-600 transition-colors"><Printer className="h-5 w-5 mr-2" />Cetak / PDF</button>
-                      <button onClick={() => setGeneratedDocs(prev => ({...prev, modul: ''}))} className="flex items-center px-6 py-3 rounded-md text-white bg-orange-600 hover:bg-orange-700 font-bold transition-colors shadow-lg"><ArrowLeft className="h-5 w-5 mr-2"/> Kembali & Pilih TP Lain</button>
-                    </div>
-                 </div>
-               )}
-             </div>
           )}
 
           {/* TAB 2-6: GENERATE DOCUMENTS */}
