@@ -230,7 +230,11 @@ function LoginScreen({ onLogin }) {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (password === 'KerinciBerbagi' || password === '') {
+    
+    // Validasi: Wajib diisi dan harus cocok dengan password baru 'Pisang1*'
+    if (password.trim() === '') {
+      setError('Password wajib diisi, tidak boleh kosong.');
+    } else if (password === 'Pisang1*') {
       onLogin();
     } else {
       setError('Password salah. Silakan coba lagi.');
@@ -238,6 +242,7 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
+    // ... sisa kode HTML login ke bawahnya tetap sama
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
