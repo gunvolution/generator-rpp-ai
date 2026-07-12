@@ -1,16 +1,3 @@
-Tentu, ini adalah kode utuh dan final untuk file **`App.js`** (atau **`App.jsx`**) Anda.
-
-Kode ini sudah mencakup **seluruh pembaruan yang kita diskusikan**, yaitu:
-
-1. Password login yang diwajibkan: **`Pisang1*`**
-2. **Fitur Manajemen Proyek (Simpan, Muat, Hapus Proyek)** per kelas/mata pelajaran tanpa database (menggunakan memori *browser*).
-3. **Jalur Manual (Copy-Paste Prompt)** untuk menghindari *Error 503* server Google.
-4. Tombol **Kembali & Pilih TP Lain** di tab Modul Ajar (dan perbaikan *blank* layar putih karena masalah ikon `ArrowLeft`).
-5. Model AI yang di-set ke **`gemini-3.5-flash`** untuk hasil terbaik.
-
-Silakan salin seluruh kode di bawah ini, lalu hapus semua isi file `App.js` Anda di GitHub, dan *paste* (timpa) dengan kode ini:
-
-```react:Generator Perangkat Ajar:App.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, FileText, Calendar, Layout, User, Lock, 
@@ -27,7 +14,7 @@ const fetchWithRetry = async (url, options, retries = 5) => {
       const response = await fetch(url, options);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`HTTP error! status: ${response.status} -${errorData.error?.message || 'Tidak ditemukan'}`);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorData.error?.message || 'Tidak ditemukan'}`);
       }
       return await response.json();
     } catch (error) {
@@ -83,7 +70,6 @@ function LoginScreen({ onLogin }) {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    // Validasi Password Baru 'Pisang1*'
     if (password.trim() === '') {
       setError('Password wajib diisi, tidak boleh kosong.');
     } else if (password === 'Pisang1*') {
@@ -281,20 +267,6 @@ function Dashboard({ onLogout }) {
     finally { setIsGenerating(false); }
   };
 
-  const handleGenerateModul = async () => {
-    if (!apiKey) { setErrorMsg('API Key belum diisi.'); setShowApiModal(true); return; }
-    if (extractedTPs.length === 0) return;
-    setIsGenerating(true); setErrorMsg('');
-    try {
-      const targetTP = extractedTPs[selectedTPIndex];
-      setProgressMsg(`Menyusun Modul Ajar untuk TP: ${targetTP.kode}...`);
-      const modul = await generateWithAI(apiKey, COMMON_RULES, getPromptModul(appData, targetTP));
-      setGeneratedDocs(prev => ({ ...prev, modul }));
-      setProgressMsg('');
-    } catch (err) { setErrorMsg(`Gagal: ${err.message}`); } 
-    finally { setIsGenerating(false); }
-  };
-
   // --- MANUAL COPY PASTE FUNCTIONS ---
   const handleCopyPrompt = async (docType) => {
     try {
@@ -340,233 +312,4 @@ function Dashboard({ onLogout }) {
       const text = await navigator.clipboard.readText();
       if (!text || text.trim() === '') return alert("Clipboard kosong. Pastikan Anda sudah meng-copy hasil dari AI.");
       
-      let cleanText = text.replace(/^```html\n/i, '').replace(/^```\n/i, '').replace(/```$/i, '');
-      setGeneratedDocs(prev => ({ ...prev, [docType]: cleanText }));
-      
-      if(docType === 'atp') {
-         parseATPForModules(cleanText);
-      }
-      alert("HTML berhasil dipaste dan dirender!");
-    } catch (err) {
-      alert("Gagal mem-paste. Coba izinkan akses Clipboard di browser Anda.");
-    }
-  };
-
-  // --- DOWNLOAD FUNCTIONS ---
-  const handleDownloadWord = () => {
-    const isLandscape = ['prosem1', 'prosem2', 'atp', 'kktp'].includes(activeTab);
-    const htmlContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export Doc</title><style>body { font-family: 'Calibri', sans-serif; font-size: 11pt; } table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; border: 1pt solid windowtext; } th, td { border: 1pt solid windowtext; padding: 5pt; vertical-align: top; } th { background-color: #1a3a5c; color: white; } @page WordSectionPortrait { size: 595.3pt 841.9pt; margin: 72pt; } @page WordSectionLandscape { size: 841.9pt 595.3pt; margin: 72pt; } div.WordSectionPortrait { page: WordSectionPortrait; } div.WordSectionLandscape { page: WordSectionLandscape; } </style></head><body><div class="${isLandscape ? 'WordSectionLandscape' : 'WordSectionPortrait'}">${generatedDocs[activeTab]}</div></body></html>`;
-    const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `ADM_${activeTab.toUpperCase()}.doc`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-  };
-
-  const handlePrintHTML = () => {
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed'; iframe.style.right = '0'; iframe.style.bottom = '0'; iframe.style.width = '100vw'; iframe.style.height = '100vh'; iframe.style.border = '0'; iframe.style.zIndex = '-9999'; 
-    document.body.appendChild(iframe);
-    const isLandscape = ['prosem1', 'prosem2', 'atp', 'kktp'].includes(activeTab);
-    const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cetak</title><style>body { font-family: 'Calibri', sans-serif; } table { width: 100%; border-collapse: collapse; border: 1pt solid black; } th, td { border: 1pt solid black; padding: 0.5rem; text-align: left; vertical-align: top; } th { background-color: #1a3a5c !important; color: white !important; font-weight: bold; } @media print { @page { size: A4 ${isLandscape ? 'landscape' : 'portrait'}; margin: 1.5cm; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }</style></head><body>${generatedDocs[activeTab]}</body></html>`;
-    iframe.contentWindow.document.open(); iframe.contentWindow.document.write(htmlContent); iframe.contentWindow.document.close();
-    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1500); }, 1000);
-  };
-
-  const tabs = [
-    { id: 'identitas', icon: Settings, label: 'Data Global (Input)' }, { id: 'cp', icon: FileText, label: '1. Analisis CP' },
-    { id: 'tp', icon: Layout, label: '2. Tujuan Pemb. (TP)' }, { id: 'atp', icon: ChevronRight, label: '3. Alur (ATP)' },
-    { id: 'prota', icon: Calendar, label: '4. Prota' }, { id: 'prosem1', icon: Calendar, label: '5a. Prosem Sem 1' },
-    { id: 'prosem2', icon: Calendar, label: '5b. Prosem Sem 2' }, { id: 'kktp', icon: CheckCircle2, label: '6. KKTP' },
-    { id: 'modul', icon: BookOpen, label: '7. Modul Ajar' },
-  ];
-
-  return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col md:flex-row">
-      <aside className="w-full md:w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col print:hidden no-print">
-        <div className="p-6 border-b border-slate-100 flex items-center space-x-3">
-          <div className="h-8 w-8 bg-blue-900 rounded-lg flex items-center justify-center"><BookOpen className="h-4 w-4 text-white" /></div>
-          <div><h1 className="font-bold text-slate-800 text-sm">Generator AI</h1><p className="text-[10px] text-slate-500">Perangkat Ajar 1 Tahun</p></div>
-        </div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
-          {tabs.map(tab => (
-            <button key={tab.id} onClick={() => { setActiveTab(tab.id); setErrorMsg(''); }} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-blue-50 text-blue-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
-              <div className="flex items-center space-x-3"><tab.icon className={`h-4 w-4 ${activeTab === tab.id ? 'text-blue-700' : 'text-slate-400'}`} /><span>{tab.label}</span></div>
-              {generatedDocs[tab.id] && tab.id !== 'identitas' && <Check className="h-4 w-4 text-green-500" />}
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center print:hidden no-print z-10 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center">{tabs.find(t => t.id === activeTab)?.label}</h2>
-          {activeTab !== 'identitas' && activeTab !== 'modul' && generatedDocs[activeTab] && (
-            <div className="flex space-x-2">
-               <button onClick={() => handlePasteResult(activeTab)} className="inline-flex items-center text-sm space-x-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded-md font-medium"><ClipboardPaste className="h-4 w-4" /><span>Paste Ulang Manual</span></button>
-               <button onClick={() => handleGenerateSingleTab(activeTab)} disabled={isGenerating} className="inline-flex items-center text-sm space-x-1.5 px-3 py-1.5 border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md font-medium">
-                 {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}<span>Generate Ulang (API)</span>
-               </button>
-            </div>
-          )}
-        </header>
-
-        <div className="flex-1 overflow-auto bg-slate-100/50 p-6 print:p-0 print:bg-white flex flex-col relative custom-scrollbar">
-          
-          {/* TAB 1: FORM DATA GLOBAL + PROJECT MANAGEMENT */}
-          {activeTab === 'identitas' && (
-            <div className="max-w-5xl mx-auto w-full bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col print:hidden no-print">
-              <div className="p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
-                <h3 className="font-bold text-slate-800 text-lg">Input Data Global 1 Tahun</h3>
-                <p className="text-sm text-slate-500 mt-1">Simpan dan Muat Proyek Anda di bawah ini agar tidak mengulang dari awal.</p>
-              </div>
-              
-              <div className="p-6 overflow-y-auto space-y-8 flex-1">
-                {/* BLOK MANAJEMEN PROYEK */}
-                <section className="bg-blue-50/80 p-5 rounded-xl border border-blue-200 shadow-inner">
-                   <h4 className="font-bold text-blue-900 mb-4 flex items-center"><FolderOpen className="w-5 h-5 mr-2" /> Manajemen Proyek Tersimpan</h4>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Form Simpan */}
-                      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                         <label className="block text-sm font-semibold text-slate-700 mb-2">Simpan Proyek Saat Ini</label>
-                         <div className="flex space-x-2">
-                           <input type="text" value={currentProjectName} onChange={(e) => setCurrentProjectName(e.target.value)} placeholder="Misal: B.Indo Kelas 8" className="flex-1 text-sm rounded-md border-slate-300 p-2 border focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                           <button onClick={handleSaveProject} className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"><Save className="w-4 h-4 mr-1" /> Simpan</button>
-                         </div>
-                      </div>
-                      
-                      {/* Form Muat */}
-                      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                         <label className="block text-sm font-semibold text-slate-700 mb-2">Muat Proyek Sebelumnya</label>
-                         <div className="flex space-x-2">
-                           <select onChange={handleLoadProject} className="flex-1 text-sm rounded-md border-slate-300 p-2 border bg-slate-50 focus:outline-none focus:ring-1 focus:ring-blue-500" value="">
-                             <option value="" disabled>-- Pilih Proyek --</option>
-                             {Object.keys(savedProjectsList).map(proj => <option key={proj} value={proj}>{proj}</option>)}
-                           </select>
-                         </div>
-                         {/* Daftar List Proyek untuk Dihapus */}
-                         <div className="mt-3 space-y-1">
-                            {Object.keys(savedProjectsList).map(proj => (
-                              <div key={proj} className="flex justify-between items-center text-xs bg-slate-100 px-3 py-2 rounded-md border border-slate-200">
-                                <span className="font-medium text-slate-700">{proj}</span>
-                                <button onClick={() => handleDeleteProject(proj)} className="text-red-500 hover:text-red-700 flex items-center"><Trash2 className="w-3.5 h-3.5 mr-1" /> Hapus</button>
-                              </div>
-                            ))}
-                         </div>
-                      </div>
-                   </div>
-                </section>
-
-                <section><h4 className="font-semibold text-blue-900 border-b pb-2 mb-4">Blok 1: Identitas Sekolah & Guru</h4>
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {['provinsiKota','dinas','sekolah','alamat','mapel','singkatan','fase','tahun','alokasiWaktu','jpMinggu','jpPertemuan','guru','nipGuru','kepsek','nipKepsek','kotaTanggal'].map(key => (
-                         <div key={key}>
-                           <label className="block text-xs font-medium text-slate-700 mb-1">{key.replace(/([A-Z])/g, ' $1').toUpperCase()}</label>
-                           <input type="text" name={key} value={appData[key]} onChange={handleChange} className="w-full text-sm rounded-md border-slate-300 p-2 border focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                         </div>
-                      ))}
-                   </div>
-                </section>
-                <section><h4 className="font-semibold text-blue-900 border-b pb-2 mb-4">Blok 2 & 3: Capaian & Elemen</h4>
-                   <div className="space-y-4">
-                      <textarea name="elemenList" rows={3} value={appData.elemenList} onChange={handleChange} className="w-full text-sm rounded-md border-slate-300 border p-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                      <textarea name="cpUmum" rows={3} value={appData.cpUmum} onChange={handleChange} className="w-full text-sm rounded-md border-slate-300 border p-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                      <textarea name="cpElemen" rows={4} value={appData.cpElemen} onChange={handleChange} className="w-full text-sm rounded-md border-slate-300 border p-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                   </div>
-                </section>
-                <section><h4 className="font-semibold text-blue-900 border-b pb-2 mb-4">Blok 4: Kalender & KKTP</h4>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <textarea name="kalender" rows={5} value={appData.kalender} onChange={handleChange} className="w-full text-sm border rounded-md border-slate-300 p-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                      <textarea name="rentangNilai" rows={5} value={appData.rentangNilai} onChange={handleChange} className="w-full text-sm border rounded-md border-slate-300 p-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                   </div>
-                </section>
-                <section><h4 className="font-semibold text-blue-900 border-b pb-2 mb-4">Blok 5: Referensi Materi Pokok</h4>
-                   <textarea name="bukuReferensi" rows={4} value={appData.bukuReferensi} onChange={handleChange} placeholder="Ringkasan bab buku paket..." className="w-full text-sm border rounded-md border-slate-300 p-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                </section>
-              </div>
-            </div>
-          )}
-
-          {/* TAB MODUL AJAR (KHUSUS) */}
-          {activeTab === 'modul' && (
-             <div className="w-full flex flex-col items-center print:hidden no-print pb-12">
-               {!generatedDocs.modul ? (
-                 <div className="w-full max-w-5xl bg-white border border-slate-200 rounded-xl shadow-sm mb-6 p-6">
-                   <h3 className="font-bold text-slate-800 text-lg mb-1">Pengaturan Cepat Modul Ajar Presisi</h3>
-                   {extractedTPs.length === 0 ? (
-                      <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-md text-sm text-yellow-800 flex items-center">
-                        <AlertCircle className="w-5 h-5 mr-2" />
-                        <span>Buat dokumen ATP terlebih dahulu di Tab 3, agar pilihan Tujuan Pembelajaran muncul di sini.</span>
-                      </div>
-                   ) : (
-                      <div className="space-y-4 mt-4">
-                         <label className="block text-sm font-semibold text-slate-700">Pilih Tujuan Pembelajaran:</label>
-                         <select value={selectedTPIndex} onChange={(e) => setSelectedTPIndex(Number(e.target.value))} className="w-full border p-3 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-medium">
-                            {extractedTPs.map((tp, idx) => <option key={idx} value={idx}>[{tp.kode}] {tp.tujuan}</option>)}
-                         </select>
-                         <div className="flex space-x-4 pt-4">
-                            <button onClick={() => handleCopyPrompt('modul')} className="flex-1 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-md font-bold flex items-center justify-center transition-colors"><Copy className="w-5 h-5 mr-2"/> 1. Salin Prompt ke ChatGPT</button>
-                            <button onClick={() => handlePasteResult('modul')} className="flex-1 bg-green-700 hover:bg-green-800 text-white py-3 rounded-md font-bold flex items-center justify-center transition-colors"><ClipboardPaste className="w-5 h-5 mr-2"/> 2. Paste Hasil HTML</button>
-                         </div>
-                      </div>
-                   )}
-                 </div>
-               ) : (
-                 <div className="w-full max-w-5xl flex flex-col items-center bg-[#525659] rounded-xl overflow-hidden shadow-xl border border-slate-400">
-                    <div className="w-full bg-green-600 text-white px-6 py-4 flex justify-between items-center"><span className="font-bold flex items-center"><CheckCircle2 className="w-5 h-5 mr-2" /> Modul Ajar Siap!</span></div>
-                    <div className="w-full overflow-x-auto flex justify-center py-10 px-4"><div className="document-preview bg-white shadow-2xl p-10 text-black w-full" style={{ maxWidth: '210mm', minHeight: '297mm' }} dangerouslySetInnerHTML={{ __html: generatedDocs.modul }} /></div>
-                    <div className="w-full flex flex-wrap justify-center gap-4 p-6 bg-slate-800">
-                      <button onClick={handleDownloadWord} className="flex items-center px-6 py-3 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"><Download className="h-5 w-5 mr-2" />Download Word</button>
-                      <button onClick={handlePrintHTML} className="flex items-center px-6 py-3 rounded-md text-white bg-slate-700 hover:bg-slate-600 transition-colors"><Printer className="h-5 w-5 mr-2" />Cetak / PDF</button>
-                      <button onClick={() => setGeneratedDocs(prev => ({...prev, modul: ''}))} className="flex items-center px-6 py-3 rounded-md text-white bg-orange-600 hover:bg-orange-700 font-bold transition-colors shadow-lg"><ArrowLeft className="h-5 w-5 mr-2"/> Kembali & Pilih TP Lain</button>
-                    </div>
-                 </div>
-               )}
-             </div>
-          )}
-
-          {/* TAB 2-6: GENERATE DOCUMENTS */}
-          {activeTab !== 'identitas' && activeTab !== 'modul' && (
-            <div className="flex-1 w-full flex flex-col items-center">
-              {!generatedDocs[activeTab] && !isGenerating && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-3xl mx-auto space-y-6">
-                  <h3 className="text-2xl font-bold text-slate-700">Mulai {tabs.find(t => t.id === activeTab)?.label}</h3>
-                  <div className="grid grid-cols-2 gap-4 w-full">
-                     <button onClick={() => handleCopyPrompt(activeTab)} className="py-4 px-6 border-2 border-slate-300 rounded-lg text-lg font-bold text-slate-700 hover:bg-slate-50 flex flex-col items-center transition-colors"><Copy className="w-8 h-8 mb-2 text-slate-600"/> 1. Salin Prompt (Manual)</button>
-                     <button onClick={() => handlePasteResult(activeTab)} className="py-4 px-6 bg-green-700 text-white rounded-lg text-lg font-bold hover:bg-green-800 flex flex-col items-center transition-colors"><ClipboardPaste className="w-8 h-8 mb-2 opacity-90"/> 2. Paste Hasil (Manual)</button>
-                  </div>
-                  <div className="w-full flex items-center my-4"><div className="flex-1 border-t border-slate-300"></div><span className="px-4 text-slate-400 font-medium">ATAU JIKA PUNYA API KEY</span><div className="flex-1 border-t border-slate-300"></div></div>
-                  <button onClick={() => handleGenerateSingleTab(activeTab)} className="w-full py-4 px-8 rounded-lg shadow-lg text-lg font-bold text-white bg-blue-900 hover:bg-blue-800 transition-colors">Generate Otomatis via API Key</button>
-                </div>
-              )}
-              {generatedDocs[activeTab] && (
-                <div className="w-full flex flex-col items-center bg-[#525659] py-8 rounded-lg">
-                  <div className="document-preview bg-white shadow-2xl p-10 text-black mb-6" style={{ width: '100%', maxWidth: ['prosem1', 'prosem2', 'atp', 'kktp'].includes(activeTab) ? '297mm' : '210mm', minHeight: ['prosem1', 'prosem2', 'atp', 'kktp'].includes(activeTab) ? '210mm' : '297mm' }} dangerouslySetInnerHTML={{ __html: generatedDocs[activeTab] }} />
-                  <div className="flex space-x-4">
-                     <button onClick={handleDownloadWord} className="px-6 py-3 rounded-md font-medium text-white bg-blue-700 hover:bg-blue-800 transition-colors shadow-md flex items-center"><Download className="h-5 w-5 mr-2"/> Download Word (.doc)</button>
-                     <button onClick={handlePrintHTML} className="px-6 py-3 rounded-md font-medium text-white bg-slate-700 hover:bg-slate-600 transition-colors shadow-md flex items-center"><Printer className="h-5 w-5 mr-2"/> Cetak / PDF</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Global CSS */}
-      <style dangerouslySetInnerHTML={{__html: `
-        .document-preview table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; border: 1pt solid black; } 
-        .document-preview th, .document-preview td { border: 1pt solid black; padding: 0.6rem; text-align: left; vertical-align: top; } 
-        .document-preview th { background-color: #1a3a5c !important; color: white !important; font-weight: bold; } 
-        @media print { 
-          body { background: white; } 
-          aside, header { display: none !important; } 
-          .document-preview { box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
-        }
-      `}} />
-    </div>
-  );
-}
-
-```
-
-Silakan *Commit changes* di GitHub, tunggu sebentar, dan aplikasi Anda kini sudah menjadi *generator* administrasi yang sangat *powerfull*!
+      let cleanText = text.replace(/^```html\n/i, '').replace(/^
